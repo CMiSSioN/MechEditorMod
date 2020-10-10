@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{971D1FFA-172B-43A4-B791-617AD2C8B8A0}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MechEditorMod</RootNamespace>
+    <AssemblyName>MechEditorMod</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>D:\Games\BATTLETECH\BattleTech_Data\Managed\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>D:\Games\BATTLETECH\BattleTech_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="CustomUnits">
+      <HintPath>D:\Games\BATTLETECH\Mods\CustomUnits\CustomUnits.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>D:\Games\BATTLETECH\BattleTech_Data\Managed\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="CountingOutputStream.cs" />
+    <Compile Include="HTTP\HTTPException.cs" />
+    <Compile Include="HTTP\HTTPFixedLengthInputStream.cs" />
+    <Compile Include="HTTP\HTTPFixedLengthOutputStream.cs" />
+    <Compile Include="HTTP\HTTPHeaderInputStream.cs" />
+    <Compile Include="HTTP\HTTPHeaderOutputStream.cs" />
+    <Compile Include="HTTP\HTTPInputStream.cs" />
+    <Compile Include="HTTP\HTTPMessage.cs" />
+    <Compile Include="HTTP\HTTPOutputStream.cs" />
+    <Compile Include="HTTP\HTTPServer.cs" />
+    <Compile Include="HTTP\HTTPServerParams.cs" />
+    <Compile Include="HTTP\HTTPServerRequest.cs" />
+    <Compile Include="HTTP\HTTPServerResponse.cs" />
+    <Compile Include="HTTP\HTTPServerSession.cs" />
+    <Compile Include="HTTP\IHTTPRequestHandler.cs" />
+    <Compile Include="HTTP\IHTTPRequestHandlerFactory.cs" />
+    <Compile Include="Log.cs" />
+    <Compile Include="MechEditorCore.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="AdditinalFiles\MEM\mod.json" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copy /Y "$(TargetPath)" "$(ProjectDir)..\..\Mods\MechEditorMod"
+xcopy /Y /S /E "$(ProjectDir)..\AdditionalFiles\MEM" "$(ProjectDir)..\..\Mods\MechEditorMod"
+copy /Y "$(TargetPath)" "$(ProjectDir)\..\..\RogueTechWorking\MechEditorMod"
+xcopy /Y /S /E "$(ProjectDir)..\AdditionalFiles\MEM" "$(ProjectDir)..\..\RogueTechWorking\MechEditorMod"
+copy /Y "$(TargetPath)" "$(ProjectDir)\..\..\Release_CAC\Release\CustomBundle\MechEditorMod"
+xcopy /Y /S /E "$(ProjectDir)..\AdditionalFiles\MEM" "$(ProjectDir)..\..\Release_CAC\Release\CustomBundle\MechEditorMod"</PostBuildEvent>
+  </PropertyGroup>
+</Project>
