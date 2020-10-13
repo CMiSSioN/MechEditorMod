@@ -42,7 +42,7 @@ namespace MechEditor {
           //this.m_fs.Write(line);
           this.mutex.ReleaseMutex();
         }
-        //if (isCritical) { this.flush(); };
+        if (isCritical) { this.flush(); };
         if (m_logfile.Length > Log.flushBufferLength) { this.flush(); };
       }
     }
@@ -77,7 +77,7 @@ namespace MechEditor {
     public static Thread flushThread = new Thread(flushThreadProc);
     public static void flushThreadProc() {
       while (Log.flushThreadActive == true) {
-        Thread.Sleep(30 * 1000);
+        Thread.Sleep(1000);
         //Log.LogWrite("Log flushing\n");
         Log.flush();
       }

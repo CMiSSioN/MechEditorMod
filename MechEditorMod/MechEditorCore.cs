@@ -1,5 +1,8 @@
 ﻿using BattleTech;
+using BattleTech.Data;
 using BattleTech.Framework;
+using BattleTech.UI;
+using CustomComponents;
 using CustomUnits;
 using Harmony;
 using HBS.Data;
@@ -8,14 +11,57 @@ using HybridDSP.Net.HTTP;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.UI;
+using static BattleTech.Data.DataManager;
 
 namespace MechEditor {
+  [HarmonyPatch(typeof(MechBayDragDropSlot))]
+  [HarmonyPatch("OnAddItem")]
+  [HarmonyPriority(Priority.Last)]
+  [HarmonyPatch(MethodType.Normal)]
+  [HarmonyPatch(new Type[] { typeof(IMechLabDraggableItem), typeof(bool) })]
+  public static class MechBayDragDropSlot_OnAddItem {
+    public static bool Prefix(MechBayDragDropSlot __instance, IMechLabDraggableItem item, bool validate, RectTransform ___mechUnitAnchor, ref MechBayMechUnitElement ___mechItem, ref bool __result) {
+      try {
+        if (!__instance.parentRow.isUnlocked || item == null) {
+          __result = false;
+          return false;
+        }
+        //Log.M.TWL(0, "MechBayDragDropSlot.OnAddItem", true);
+        ___mechItem = item as MechBayMechUnitElement;
+        //Log.M.WL(1, "___mechItem = item as MechBayMechUnitElement;");
+        //Log.M.WL(1, "CachedRectTransform:"+(___mechItem.CachedRectTransform == null?"null":"not null"));
+        if (___mechItem.CachedRectTransform == null) {
+          Traverse.Create(___mechItem).Field<RectTransform>("cRTrans").Value = ___mechItem.GetComponent<RectTransform>();
+        }
+        ___mechItem.CachedRectTransform.SetParent((Transform)___mechUnitAnchor, false);
+        //Log.M.WL(1, "___mechItem.CachedRectTransform.SetParent((Transform)___mechUnitAnchor, false);");
+        ___mechItem.DropParent = (IMechLabDropTarget)__instance;
+        //Log.M.WL(1, "___mechItem.DropParent = (IMechLabDropTarget)__instance;");
+        ___mechItem.thisCanvasGroup.blocksRaycasts = true;
+        //Log.M.WL(1, "___mechItem.thisCanvasGroup.blocksRaycasts = true;");
+        ___mechItem.CachedRectTransform.localPosition = Vector3.zero;
+        //Log.M.WL(1, "___mechItem.CachedRectTransform.localPosition = Vector3.zero;");
+        ___mechItem.CachedRectTransform.localScale = Vector3.one;
+        //Log.M.WL(1, "___mechItem.CachedRectTransform.localScale = Vector3.one;");
+        ___mechItem.baySlot = __instance.slotIdx;
+        //Log.M.WL(1, "___mechItem.baySlot = __instance.slotIdx;");
+        __result = true;
+        return false;
+      } catch (Exception e) {
+        Log.M.TWL(0, e.ToString(), true);
+        return true;
+      }
+    }
+  }
   public class Settings {
     public bool debugLog { get; set; }
     public int httpServerPort { get; set; }
@@ -24,13 +70,211 @@ namespace MechEditor {
       httpServerPort = 64080;
     }
   }
+  public class GoToMechBayTask: HTTPTask {
+    public GoToMechBayTask(int id, JObject req, SimGameState sim, bool done = false):base(id,req,sim,done) {
+      
+    }
+    public override void Update() {
+      if (Traverse.Create(sim.RoomManager).Field<bool>("roomChanging").Value == true) { return; }
+      if (Traverse.Create(sim.RoomManager).Field<DropshipLocation>("currRoomDropshipLocation").Value != DropshipLocation.MECH_BAY) { return; }
+      if (sim.RoomManager.MechBayRoom.roomActive == false) { return; }
+      responce["error"] = new JObject();
+      responce["error"]["id"] = "SUCCESS";
+      responce["error"]["string"] = "Success";
+      done = true;
+    }
+    public override void Execute() {
+      sim.ForceActiveDropshipRoom(DropshipMenuType.MechBay);
+      this.executing = true;
+    }
+  }
+
+  public class OpenInMechLab: HTTPTask {
+    private MechBayMechInfoWidget mechInfoWidget;
+    private bool OnMechLabClicked;
+    private MechBayPanel mechBay;
+    public OpenInMechLab(int id, JObject req, SimGameState sim, bool done = false) : base(id, req, sim, done) {
+      OnMechLabClicked = false;
+    }
+    public override void Update() {
+      if (mechInfoWidget == null) { return; }
+      if (Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechRepresentationSimGame>("loadedMech").Value == null) { return; }
+      if (OnMechLabClicked == false) { mechInfoWidget.OnMechLabClicked(); OnMechLabClicked = true; return; }
+      if (mechBay.Initialized == false) { return; }
+      done = true;
+    }
+    public override void Execute() {
+      this.executing = true;
+      responce = new JObject();
+      try {
+        //using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+        //jrequest = JObject.Parse(tr.ReadToEnd());
+        //}
+        if(sim.RoomManager.MechBayRoom.roomActive == false) {
+          responce["error"] = new JObject();
+          responce["error"]["id"] = "NOTINROOM";
+          responce["error"]["string"] = "You are not in mechbay";
+          done = true;
+          return;
+        }
+        MechDef def = sim.DataManager.MechDefs.Get((string)request["mechDef"]);
+        if (def == null) {
+          responce["error"] = new JObject();
+          responce["error"]["id"] = "NOTFOUND";
+          responce["error"]["string"] = "Mech def not found in database";
+          done = true;
+          return;
+        }
+        this.mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
+        Log.M.TWL(0, "mechBay found", true);
+        MechBayRowGroupWidget bayGroupWidget = Traverse.Create(this.mechBay).Field<MechBayRowGroupWidget>("bayGroupWidget").Value;
+        Log.M.TWL(0, "bayGroupWidget found", true);
+        Transform editorBayTR = bayGroupWidget.transform.FindRecursive("editorBay");
+        MechBayRowWidget editorBay = null;
+        if (editorBayTR == null) {
+          Log.M.TWL(0, "editorBay Instantiate", true);
+          editorBayTR = GameObject.Instantiate(bayGroupWidget.Bays[0].gameObject).transform;
+          Log.M.TWL(0, "editorBay Instantiate success", true);
+          editorBayTR.gameObject.name = "editorBay";
+          editorBayTR.SetParent(bayGroupWidget.Bays[0].gameObject.transform.parent.parent);
+          editorBayTR.localScale = Vector3.one;
+          LayoutElement layout = editorBayTR.gameObject.GetComponent<LayoutElement>();
+          if (layout != null) { GameObject.Destroy(layout); };
+          editorBayTR.position = new Vector3(0f, -100f, 0);
+          Log.M.TWL(0, "editorBay SetData", true);
+        }
+        editorBay = editorBayTR.gameObject.GetComponent<MechBayRowWidget>();
+        if (editorBay != null) {
+          MechDef loadedMechDef = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechDef>("loadedMechDef").Value;
+          if (loadedMechDef != def) { sim.RoomManager.MechBayRoom.RemoveMech(); }
+          editorBay.SetData(mechBay, sim, "Edit", true, 10000, 10005);
+          editorBay.SetMech(0, def, false, true, false);
+          this.mechBay.OnButtonClicked(editorBay.MechList[0]);
+          this.mechInfoWidget = Traverse.Create(mechBay).Field<MechBayMechInfoWidget>("mechInfoWidget").Value;
+        } else {
+          done = true;
+        }
+        responce["error"] = new JObject();
+        responce["error"]["id"] = "SUCCESS";
+        responce["error"]["string"] = "Success";
+      } catch (Exception e) {
+        responce["error"] = new JObject();
+        responce["error"]["id"] = "EXCEPTION";
+        responce["error"]["string"] = e.ToString();
+        done = true;
+      }
+    }
+  }
+  public class HTTPTask {
+    public int id { get; private set; }
+    public SimGameState sim { get; private set; }
+    public JObject request { get; private set; }
+    public JObject responce { get; set; }
+    public bool executing { get; protected set; }
+    public bool done { get; protected set; }
+    public virtual void Update() {
+      done = true;
+    }
+    public void openMechInLab() {
+    }
+    public virtual void Execute() {
+      executing = true;
+    }
+    public HTTPTask(int id,JObject req,SimGameState sim, bool done = false) {
+      this.id = id;
+      this.request = req;
+      this.sim = sim;
+      responce = new JObject();
+      this.done = done;
+      this.executing = false;
+    }
+  }
+  [HarmonyPatch(typeof(UnityGameInstance))]
+  [HarmonyPatch("Update")]
+  [HarmonyPriority(Priority.Last)]
+  [HarmonyPatch(MethodType.Normal)]
+  [HarmonyPatch(new Type[] { })]
+  public static class UnityHTTPQueue {
+    private static int queue_index = 0;
+    private static Dictionary<int, HTTPTask> tasks = new Dictionary<int, HTTPTask>();
+    private static HashSet<int> tasksToCommit = new HashSet<int>();
+    public static int AddTask(string jobId, JObject request, SimGameState sim) {
+      HTTPTask task = null;
+      if(jobId == "openmechlab") {
+        task = new OpenInMechLab(queue_index, request, sim);
+      } else if(jobId == "gotomechbay") { 
+        task = new GoToMechBayTask(queue_index, request, sim);
+      } else {
+        task = new HTTPTask(queue_index, request, sim);
+      }
+      tasks.Add(queue_index, task);
+      ++queue_index;
+      return task.id;
+    }
+    public static bool isTaskDone(int id) {
+      if(tasks.TryGetValue(id, out HTTPTask task)) {
+        return task.done;
+      }
+      return true;
+    }
+    public static HTTPTask GetTask(int id) {
+      if (tasks.TryGetValue(id, out HTTPTask task)) {
+        return task;
+      }
+      return new HTTPTask(id,new JObject(), null, true);
+    }
+    public static void CommitTask(int id) {
+      tasksToCommit.Add(id);
+    }
+    public static void Postfix(UnityGameInstance __instance) {
+      foreach (var task in tasks) {
+        if((task.Value.done == false)&&(task.Value.executing == false)) {
+          task.Value.Execute();
+        }
+      }
+      foreach (var task in tasks) {
+        if ((task.Value.done == false) && (task.Value.executing == true)) {
+          task.Value.Update();
+        }
+      }
+      foreach (int id in tasksToCommit) {
+        tasks.Remove(id);
+      }
+    }
+  }
   class MechEditorAPIHandler : IHTTPRequestHandler {
     public void SendResponce(ref JObject content, ref HTTPServerResponse response) {
+      response.ContentType = "application/json";
+      response.StatusAndReason = HTTPServerResponse.HTTPStatus.HTTP_OK;
       using (Stream ostr = response.Send()) using (TextWriter tw = new StreamWriter(ostr)) {
         tw.Write(content.ToString(Formatting.Indented));
       }
     }
-    public JObject listItems<T>(SimGameState sim, string propertyName) where T : new() {
+    public void SendResponce(string filename, ref HTTPServerResponse response) {
+      string fullname = Core.BaseDirectroy + Path.DirectorySeparatorChar + filename.Replace('/', Path.DirectorySeparatorChar);
+      Log.M.TWL(0, "base:"+Core.BaseDirectroy+" file:"+filename);
+      Log.M.WL(1, fullname);
+      if (File.Exists(fullname) == false) {
+        response.StatusAndReason = HTTPServerResponse.HTTPStatus.HTTP_NOT_FOUND;
+        response.Send();
+        return;
+      }
+      response.StatusAndReason = HTTPServerResponse.HTTPStatus.HTTP_OK;
+      response.ContentType = GetMimeType(Path.GetExtension(fullname));
+      FileInfo fi = new FileInfo(fullname);
+      response.ContentLength = fi.Length;
+      using (Stream output = response.Send()) {
+        using (FileStream FS = new FileStream(fullname, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+          byte[] Buffer = new byte[1024];
+          int Count = 0;
+          while (FS.Position < FS.Length) {
+            Count = FS.Read(Buffer, 0, Buffer.Length);
+            output.Write(Buffer, 0, Count);
+          }
+        }
+      }
+    }
+    public JObject listItems(SimGameState sim, string fieldName) {
       JObject content = new JObject();
       if (sim.DataManager == null) {
         content["error"] = new JObject();
@@ -39,18 +283,13 @@ namespace MechEditor {
         return content;
       }
       try {
-        IDataItemStore<string, T> list = Traverse.Create(sim.DataManager).Property<IDataItemStore<string, T>>(propertyName).Value;
-        content[propertyName] = new JArray();
-        Log.M.TWL(0, "listing " + propertyName + "(" + list.Count + ")");
-        foreach (var item in list) {
-          Log.M.WL(1, item.Key);
-          //IJsonTemplated template = item.Value as IJsonTemplated;
-          //if (template == null) { continue; }
-          //try {
-            (content[propertyName] as JArray).Add(item.Key);
-          //}catch(Exception) {
-            //continue;
-          //}
+        object list = typeof(DataManager).GetField(fieldName,BindingFlags.Instance|BindingFlags.NonPublic).GetValue(sim.DataManager);
+        IEnumerable<string> keys = list.GetType().GetProperty("Keys", BindingFlags.Instance | BindingFlags.Public).GetMethod.Invoke(list, new object[] { }) as IEnumerable<string>;
+        content[fieldName] = new JArray();
+        Log.M.TWL(0, "listing " + fieldName);
+        foreach (var item in keys) {
+          Log.M.WL(1, item);
+          (content[fieldName] as JArray).Add(item);
         }
         return content;
       } catch (Exception e) {
@@ -60,7 +299,20 @@ namespace MechEditor {
         return content;
       }
     }
-    public JObject listItems(SimGameState sim, string propertyName) {
+    /*public JObject listItems(SimGameState sim, string fieldName) {
+
+      FieldInfo[] fields = typeof(DataManager).GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
+      foreach (FieldInfo field in fields) {
+        if (field.FieldType.IsGenericType == false) { continue; }
+        Type[] typeArguments = field.FieldType.GetGenericArguments();
+        if (typeArguments.Length == 0) { continue; }
+        if (typeof(IJsonTemplated).IsAssignableFrom(typeArguments[0]) == false) { continue; }
+        MethodInfo FromJSON = typeArguments[0].GetMethod("FromJSON", BindingFlags.Instance | BindingFlags.Public);
+        if (FromJSON == null) { continue; };
+
+      }
+
+
       if (propertyName == "ChassisDefs") { return listItems<ChassisDef>(sim, propertyName); }else
       if (propertyName == "VehicleChassisDefs") { return listItems<VehicleChassisDef>(sim, propertyName); } else
       if (propertyName == "TurretChassisDefs") { return listItems<TurretChassisDef>(sim, propertyName); } else
@@ -101,23 +353,17 @@ namespace MechEditor {
         content["error"]["string"] = "No such property list";
         return content;
       }
-    }
-    public JObject addMechFromFile(SimGameState sim, ref HTTPServerRequest request) {
+    }*/
+    public JObject addMechFromDatabase(SimGameState sim, ref HTTPServerRequest request) {
       JObject jrequest = null;
       JObject result = new JObject();
       try {
         using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
           jrequest = JObject.Parse(tr.ReadToEnd());
         }
-        MechDef def = new MechDef();
-        def.FromJSON(jrequest["mechDef"].ToString());
-        def.DataManager = sim.DataManager;
-        def.Refresh();
-        if(sim.DataManager.MechDefs.Exists(def.Description.Id)) {
-          Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Remove(def.Description.Id);
-        }
-        Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Add(def.Description.Id,def);
         int bayIndex = (int)jrequest["bayIndex"];
+        string mechdefId = (string)jrequest["mechDefId"];
+        MechDef def = sim.DataManager.MechDefs.Get(mechdefId);
         if (def.IsChassisFake()) {
           bayIndex += sim.VehicleShift();
         }
@@ -127,6 +373,415 @@ namespace MechEditor {
         result["error"]["string"] = "Success";
         return result;
       } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "REQUESTERROR";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
+    public JObject getAvaibleLists() {
+      JObject result = new JObject();
+      FieldInfo[] fields = typeof(DataManager).GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
+      result["lists"] = new JArray();
+      foreach (FieldInfo field in fields) {
+        if (field.FieldType.IsGenericType == false) { continue; }
+        Type[] typeArguments = field.FieldType.GetGenericArguments();
+        if (typeArguments.Length == 0) { continue; }
+        if (typeof(IJsonTemplated).IsAssignableFrom(typeArguments[0]) == false) { continue; }
+        (result["lists"] as JArray).Add(field.Name);
+      }
+      return result;
+    }
+    public JObject setDefToDataBase(SimGameState sim, string fieldName, ref HTTPServerRequest request) {
+      if (fieldName == "chassisDefs") { return setDefToDataBase<ChassisDef>(sim, fieldName, ref request); }else
+      if (fieldName == "vehicleChassisDefs") { return setDefToDataBase<VehicleChassisDef>(sim, fieldName, ref request); } else
+      if (fieldName == "turretChassisDefs") { return setDefToDataBase<TurretChassisDef>(sim, fieldName, ref request); } else
+      if (fieldName == "turretDefs") { return setDefToDataBase<TurretDef>(sim, fieldName, ref request); } else
+      if (fieldName == "ammoDefs") { return setDefToDataBase<AmmunitionDef>(sim, fieldName, ref request); } else
+      if (fieldName == "ammoBoxDefs") { return setDefToDataBase<AmmunitionBoxDef>(sim, fieldName, ref request); } else
+      if (fieldName == "jumpJetDefs") { return setDefToDataBase<JumpJetDef>(sim, fieldName, ref request); } else
+      if (fieldName == "heatSinkDefs") { return setDefToDataBase<HeatSinkDef>(sim, fieldName, ref request); } else
+      if (fieldName == "upgradeDefs") { return setDefToDataBase<UpgradeDef>(sim, fieldName, ref request); } else
+      if (fieldName == "weaponDefs") { return setDefToDataBase<WeaponDef>(sim, fieldName, ref request); } else
+      if (fieldName == "mechDefs") { return setDefToDataBase<MechDef>(sim, fieldName, ref request); } else
+      if (fieldName == "hardpointDataDefs") { return setDefToDataBase<HardpointDataDef>(sim, fieldName, ref request); } else 
+      if (fieldName == "vehicleDefs") { return setDefToDataBase<VehicleDef>(sim, fieldName, ref request); } else {
+        JObject result = new JObject();
+        result["error"] = new JObject();
+        result["error"]["id"] = "NOTAVAIBLE";
+        result["error"]["string"] = "not exists or read only";
+        return result;
+      }
+    }
+    public JObject setDefToDataBase<T>(SimGameState sim, string fieldName, ref HTTPServerRequest request) where T : new() {
+      JObject jrequest = null;
+      JObject result = new JObject();
+      try {
+        using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+          jrequest = JObject.Parse(tr.ReadToEnd());
+        }
+        DictionaryStore<T> list = Traverse.Create(sim.DataManager).Field<DictionaryStore<T>>(fieldName).Value;
+        string id = string.Empty;
+        T def = Activator.CreateInstance<T>();
+        if (typeof(T) == typeof(ChassisDef)) {
+          (def as ChassisDef).FromJSON(jrequest.ToString());
+          (def as ChassisDef).DataManager = sim.DataManager;
+          (def as ChassisDef).Refresh();
+          (def as ChassisDef).setOriginal(jrequest.ToString());
+          id = (def as ChassisDef).Description.Id;
+        } else
+        if (typeof(T) == typeof(MechDef)) {
+          (def as MechDef).FromJSON(jrequest.ToString());
+          (def as MechDef).DataManager = sim.DataManager;
+          (def as MechDef).Refresh();
+          (def as MechDef).setOriginal(jrequest.ToString());
+          id = (def as MechDef).Description.Id;
+        } else
+        if (typeof(T) == typeof(VehicleDef)) {
+          (def as VehicleDef).FromJSON(jrequest.ToString());
+          (def as VehicleDef).DataManager = sim.DataManager;
+          (def as VehicleDef).Refresh();
+          (def as VehicleDef).AddToFake();
+          (def as VehicleDef).setOriginal(jrequest.ToString());
+          id = (def as VehicleDef).Description.Id;
+          DictionaryStore<MechDef> mechs = Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value;
+          mechs.Remove(id);
+          MechDef fakeDef = new MechDef();
+          fakeDef.FromJSON(jrequest.ToString());
+          fakeDef.Refresh();
+          mechs.Add(id, fakeDef);
+        } else
+        if (typeof(T) == typeof(VehicleChassisDef)) {
+          (def as VehicleChassisDef).FromJSON(jrequest.ToString());
+          (def as VehicleChassisDef).DataManager = sim.DataManager;
+          (def as VehicleChassisDef).Refresh();
+          (def as VehicleChassisDef).AddToFake();
+          (def as VehicleChassisDef).setOriginal(jrequest.ToString());
+          id = (def as VehicleChassisDef).Description.Id;
+          DictionaryStore<ChassisDef> chassis = Traverse.Create(sim.DataManager).Field<DictionaryStore<ChassisDef>>("chassisDefs").Value;
+          chassis.Remove(id);
+          ChassisDef fakeDef = new ChassisDef();
+          fakeDef.FromJSON(jrequest.ToString());
+          fakeDef.Refresh();
+          chassis.Add(id, fakeDef);
+        } else
+        if (typeof(T) == typeof(TurretDef)) {
+          (def as TurretDef).FromJSON(jrequest.ToString());
+          (def as TurretDef).DataManager = sim.DataManager;
+          (def as TurretDef).Refresh();
+          (def as TurretDef).setOriginal(jrequest.ToString());
+          id = (def as TurretDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(TurretChassisDef)) {
+          (def as TurretChassisDef).FromJSON(jrequest.ToString());
+          (def as TurretChassisDef).DataManager = sim.DataManager;
+          (def as TurretChassisDef).Refresh();
+          (def as TurretChassisDef).setOriginal(jrequest.ToString());
+          id = (def as TurretChassisDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(HardpointDataDef)) {
+          (def as HardpointDataDef).FromJSON(jrequest.ToString());
+          (def as HardpointDataDef).setOriginal(jrequest.ToString());
+          id = (def as HardpointDataDef).ID;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(AmmunitionDef)) {
+          (def as AmmunitionDef).FromJSON(jrequest.ToString());
+          (def as AmmunitionDef).setOriginal(jrequest.ToString());
+          id = (def as AmmunitionDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(AmmunitionBoxDef)) {
+          (def as AmmunitionBoxDef).FromJSON(jrequest.ToString());
+          (def as AmmunitionBoxDef).DataManager = sim.DataManager;
+          (def as AmmunitionBoxDef).refreshAmmo(sim.DataManager);
+          (def as AmmunitionBoxDef).setOriginal(jrequest.ToString());
+          id = (def as AmmunitionBoxDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(WeaponDef)) {
+          (def as WeaponDef).FromJSON(jrequest.ToString());
+          (def as WeaponDef).DataManager = sim.DataManager;
+          (def as WeaponDef).setOriginal(jrequest.ToString());
+          id = (def as WeaponDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(HeatSinkDef)) {
+          (def as HeatSinkDef).FromJSON(jrequest.ToString());
+          (def as HeatSinkDef).DataManager = sim.DataManager;
+          (def as WeaponDef).setOriginal(jrequest.ToString());
+          id = (def as HeatSinkDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(JumpJetDef)) {
+          (def as JumpJetDef).FromJSON(jrequest.ToString());
+          (def as JumpJetDef).DataManager = sim.DataManager;
+          (def as JumpJetDef).setOriginal(jrequest.ToString());
+          id = (def as JumpJetDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        } else
+        if (typeof(T) == typeof(UpgradeDef)) {
+          (def as UpgradeDef).FromJSON(jrequest.ToString());
+          (def as UpgradeDef).DataManager = sim.DataManager;
+          (def as UpgradeDef).setOriginal(jrequest.ToString());
+          id = (def as UpgradeDef).Description.Id;
+          if (list.Exists(id)) { list.Remove(id); };
+        }
+        list.Add(id, def);
+        result["error"] = new JObject();
+        result["error"]["id"] = "SUCCESS";
+        result["error"]["string"] = "Success";
+        return result;
+      } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "EXCEPTION";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
+    public JObject getDefFromDatabase(SimGameState sim, string fieldName, string defId) {
+      JObject content = new JObject();
+      if (sim.DataManager == null) {
+        content["error"] = new JObject();
+        content["error"]["id"] = "NODATAMANAGER";
+        content["error"]["string"] = "No DataManager avaible";
+        return content;
+      }
+      try {
+        IDataItemStore<string> list = Traverse.Create(sim.DataManager).Field<IDataItemStore<string>>(fieldName).Value;
+        object item = list.GetObject(defId);
+        if(item == null) {
+          content["error"] = new JObject();
+          content["error"]["id"] = "NOSUCHITEM";
+          content["error"]["string"] = "no item with such id";
+          return content;
+        }
+        if ((item as MechDef) != null) { content = JObject.Parse((item as MechDef).getOriginal()); }else
+        if ((item as VehicleDef) != null) { content = JObject.Parse((item as VehicleDef).getOriginal()); }else
+        if ((item as ChassisDef) != null) { content = JObject.Parse((item as ChassisDef).getOriginal()); }else
+        if ((item as VehicleChassisDef) != null) { content = JObject.Parse((item as VehicleChassisDef).getOriginal()); }else
+        if ((item as HardpointDataDef) != null) { content = JObject.Parse((item as HardpointDataDef).getOriginal()); } else
+        if ((item as AmmunitionDef) != null) { content = JObject.Parse((item as AmmunitionDef).getOriginal()); } else
+        if ((item as AmmunitionBoxDef) != null) { content = JObject.Parse((item as AmmunitionBoxDef).getOriginal()); } else
+        if ((item as JumpJetDef) != null) { content = JObject.Parse((item as JumpJetDef).getOriginal()); } else
+        if ((item as HeatSinkDef) != null) { content = JObject.Parse((item as HeatSinkDef).getOriginal()); } else
+        if ((item as UpgradeDef) != null) { content = JObject.Parse((item as UpgradeDef).getOriginal()); } else
+        if ((item as WeaponDef) != null) { content = JObject.Parse((item as WeaponDef).getOriginal()); } else
+        if ((item as IJsonTemplated) != null) { content = JObject.Parse((item as IJsonTemplated).ToJSON()); } else {
+          content["error"] = new JObject();
+          content["error"]["id"] = "NOTJSON";
+          content["error"]["string"] = "definition is not json";
+          return content;
+        }
+        return content;
+      } catch (Exception e) {
+        content["error"] = new JObject();
+        content["error"]["id"] = "EXCEPTION";
+        content["error"]["string"] = e.ToString();
+        return content;
+      }
+    }
+    public JObject addMechFromFile(SimGameState sim, ref HTTPServerRequest request) {
+      JObject jrequest = null;
+      JObject result = new JObject();
+      try {
+        MechBayPanel mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
+        if (mechBay.Initialized) {
+          result["error"] = new JObject();
+          result["error"]["id"] = "MECHBAYINITED";
+          result["error"]["string"] = "Adding mech is not allowed while in mechlab";
+          return result;
+        }
+        sim.RoomManager.ClearRooms(true);
+        using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+          jrequest = JObject.Parse(tr.ReadToEnd());
+        }
+        MechDef def = new MechDef();
+        def.FromJSON(jrequest["mechDef"].ToString());
+        def.DataManager = sim.DataManager;
+        def.Refresh();
+        //((DefaultFixer)typeof(DefaultFixer).GetField("Shared", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null)).FixMech(def,sim);
+        DefaultFixer.Shared.FixMech(def, sim);
+        //DefaultFixer.Shared.FixMechs();
+        if (sim.DataManager.MechDefs.Exists(def.Description.Id)) {
+          Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Remove(def.Description.Id);
+        }
+        Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Add(def.Description.Id,def);
+        int bayIndex = (int)jrequest["bayIndex"];
+        sim.AddMech(bayIndex, def, true, true, false);
+        result["error"] = new JObject();
+        result["error"]["id"] = "SUCCESS";
+        result["error"]["string"] = "Success";
+        return result;
+      } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "REQUESTERROR";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
+    public JObject addVehiclemFromFile(SimGameState sim, ref HTTPServerRequest request) {
+      JObject jrequest = null;
+      JObject result = new JObject();
+      try {
+        MechBayPanel mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
+        if (mechBay.Initialized) {
+          result["error"] = new JObject();
+          result["error"]["id"] = "MECHBAYINITED";
+          result["error"]["string"] = "Adding vehicle is not allowed while in mechlab";
+          return result;
+        }
+        sim.RoomManager.ClearRooms(true);
+        using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+          jrequest = JObject.Parse(tr.ReadToEnd());
+        }
+        VehicleDef def = new VehicleDef();
+        def.FromJSON(jrequest["vehicleDef"].ToString());
+        def.DataManager = sim.DataManager;
+        def.Refresh();
+        //((DefaultFixer)typeof(DefaultFixer).GetField("Shared", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null)).FixMech(def,sim);
+        //DefaultFixer.Shared.FixMech(def, sim);
+        //DefaultFixer.Shared.FixMechs();
+        if (sim.DataManager.MechDefs.Exists(def.Description.Id)) {
+          Traverse.Create(sim.DataManager).Field<DictionaryStore<VehicleDef>>("VehicleDefs").Value.Remove(def.Description.Id);
+        }
+        Traverse.Create(sim.DataManager).Field<DictionaryStore<VehicleDef>>("VehicleDefs").Value.Add(def.Description.Id, def);
+        MechDef fakeMechDef = new MechDef();
+        fakeMechDef.FromJSON(jrequest["vehicleDef"].ToString());
+        if (sim.DataManager.MechDefs.Exists(def.Description.Id)) {
+          Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Remove(def.Description.Id);
+        }
+        Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Add(def.Description.Id, fakeMechDef);
+        int bayIndex = (int)jrequest["bayIndex"]+ sim.VehicleShift();
+        sim.AddMech(bayIndex, fakeMechDef, true, true, false);
+        result["error"] = new JObject();
+        result["error"]["id"] = "SUCCESS";
+        result["error"]["string"] = "Success";
+        return result;
+      } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "REQUESTERROR";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
+    public JObject addAllEqupment(SimGameState sim, ref HTTPServerRequest request) {
+      JObject jrequest = null;
+      JObject result = null;
+      MechBayPanel mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
+      if (mechBay.Initialized) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "MECHBAYINITED";
+        result["error"]["string"] = "Adding equipment is not allowed while in mechlab";
+        return result;
+      }
+      try {
+        using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+          jrequest = JObject.Parse(tr.ReadToEnd());
+        }
+        int count = 0;
+        if (jrequest["count"] != null) { count = (int)jrequest["count"]; }; if (count <= 0) { count = 10; }
+        foreach(var item in sim.DataManager.AmmoBoxDefs) {
+          string stat_name = sim.GetItemStatID(item.Value.Description, item.Value.GetType());
+          if (sim.CompanyStats.ContainsStatistic(stat_name) == false) {
+            sim.CompanyStats.AddStatistic<int>(stat_name, 0);
+          }
+          sim.CompanyStats.Set<int>(stat_name, count);
+        }
+        foreach (var item in sim.DataManager.UpgradeDefs) {
+          string stat_name = sim.GetItemStatID(item.Value.Description, item.Value.GetType());
+          if (sim.CompanyStats.ContainsStatistic(stat_name) == false) {
+            sim.CompanyStats.AddStatistic<int>(stat_name, 0);
+          }
+          sim.CompanyStats.Set<int>(stat_name, count);
+        }
+        foreach (var item in sim.DataManager.HeatSinkDefs) {
+          string stat_name = sim.GetItemStatID(item.Value.Description, item.Value.GetType());
+          if (sim.CompanyStats.ContainsStatistic(stat_name) == false) {
+            sim.CompanyStats.AddStatistic<int>(stat_name, 0);
+          }
+          sim.CompanyStats.Set<int>(stat_name, count);
+        }
+        foreach (var item in sim.DataManager.JumpJetDefs) {
+          string stat_name = sim.GetItemStatID(item.Value.Description, item.Value.GetType());
+          if (sim.CompanyStats.ContainsStatistic(stat_name) == false) {
+            sim.CompanyStats.AddStatistic<int>(stat_name, 0);
+          }
+          sim.CompanyStats.Set<int>(stat_name, count);
+        }
+        foreach (var item in sim.DataManager.WeaponDefs) {
+          string stat_name = sim.GetItemStatID(item.Value.Description, item.Value.GetType());
+          if (sim.CompanyStats.ContainsStatistic(stat_name) == false) {
+            sim.CompanyStats.AddStatistic<int>(stat_name, 0);
+          }
+          sim.CompanyStats.Set<int>(stat_name, count);
+        }
+        result = new JObject();
+        result["error"] = new JObject();
+        result["error"]["id"] = "SUCCESS";
+        result["error"]["string"] = "Success";
+        return result;
+      } catch (Exception e) {
+        result = new JObject();
+        result["error"] = new JObject();
+        result["error"]["id"] = "REQUESTERROR";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
+    public JObject getMechBayMech(SimGameState sim, ref HTTPServerRequest request) {
+      JObject jrequest = null;
+      JObject result = null;
+      try {
+        using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+          jrequest = JObject.Parse(tr.ReadToEnd());
+        }
+        MechBayPanel mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
+        string Id = string.Empty; if (jrequest["Id"]!=null) { Id = (string)jrequest["Id"]; }; if (string.IsNullOrEmpty(Id)) { Id = mechBay.mechLab.originalMechDef.Description.Id; }
+        string Name = string.Empty; if (jrequest["Name"] != null) { Name = (string)jrequest["Name"]; }; if (string.IsNullOrEmpty(Name)) { Name = mechBay.mechLab.activeMechDef.Description.Name; }
+        string UIName = string.Empty; if (jrequest["UIName"] != null) { UIName = (string)jrequest["UIName"]; }; if (string.IsNullOrEmpty(UIName)) { UIName = mechBay.mechLab.activeMechDef.Description.UIName; }
+        string Details = string.Empty; if (jrequest["Details"] != null) { Details = (string)jrequest["Details"]; }; if (string.IsNullOrEmpty(Details)) { Details = mechBay.mechLab.activeMechDef.Description.Details; }
+        string Icon = string.Empty; if (jrequest["Icon"] != null) { Icon = (string)jrequest["Icon"]; }; if (string.IsNullOrEmpty(Icon)) { Icon = mechBay.mechLab.activeMechDef.Description.Icon; }
+        float Rarity = float.NaN; if (jrequest["Rarity"] != null) { Rarity = (float)jrequest["Rarity"]; }; if (float.IsNaN(Rarity)) { Rarity = mechBay.mechLab.originalMechDef.Description.Rarity; }
+
+        if (mechBay.mechLab.Initialized == false) {
+          result["error"] = new JObject();
+          result["error"]["id"] = "MECHLABNOTINITED";
+          result["error"]["string"] = "Mech lab not initialized";
+          return result;
+        }
+        result = JObject.Parse(mechBay.mechLab.originalMechDef.getOriginal());
+        MechLabMechInfoWidget mechInfoWidget = Traverse.Create(mechBay.mechLab).Field<MechLabMechInfoWidget>("mechInfoWidget").Value;
+        DescriptionDef description = new DescriptionDef(Id, Name, Details, Icon, (int)mechInfoWidget.currentCBillValue, Rarity, true, mechBay.mechLab.originalMechDef.Description.Manufacturer, mechBay.mechLab.originalMechDef.Description.Model, UIName);
+        LocationLoadoutDef[] Localtions = new LocationLoadoutDef[8] {
+          mechBay.mechLab.headWidget.loadout,
+          mechBay.mechLab.centerTorsoWidget.loadout,
+          mechBay.mechLab.leftTorsoWidget.loadout,
+          mechBay.mechLab.rightTorsoWidget.loadout,
+          mechBay.mechLab.leftArmWidget.loadout,
+          mechBay.mechLab.rightArmWidget.loadout,
+          mechBay.mechLab.leftLegWidget.loadout,
+          mechBay.mechLab.rightLegWidget.loadout
+        };
+        List<MechComponentRef> temp_inventory = new List<MechComponentRef>();
+        for (int index = 0; index < mechBay.mechLab.activeMechInventory.Count; ++index) {
+          MechComponentRef component = new MechComponentRef(mechBay.mechLab.activeMechInventory[index]);
+          component.SimGameUID = string.Empty;
+          component.SetGuid(string.Empty);
+          component.hasPrefabName = false;
+          component.prefabName = string.Empty;
+          temp_inventory.Add(component);
+        }
+        MechComponentRef[] inventory = temp_inventory.ToArray();
+        string inventory_string = JSONSerializationUtility.ToJSON<MechComponentRef[]>(inventory);
+        string Locations_string = JSONSerializationUtility.ToJSON<LocationLoadoutDef[]>(Localtions);
+        result["Description"] = JObject.Parse(description.ToJSON());
+        result["inventory"] = JArray.Parse(inventory_string);
+        result["Locations"] = JArray.Parse(Locations_string);
+        return result;
+      }catch(Exception e) {
         result["error"] = new JObject();
         result["error"]["id"] = "REQUESTERROR";
         result["error"]["string"] = e.ToString();
@@ -177,6 +832,96 @@ namespace MechEditor {
       }
       return result;
     }
+    private static string GetMimeType(string ext) {
+      switch (ext) {
+        case ".html": return "text/html";
+        case ".htm": return "text/html";
+        case ".txt": return "text/plain";
+        case ".jpe": return "image/jpeg";
+        case ".jpeg": return "image/jpeg";
+        case ".jpg": return "image/jpeg";
+        case ".js": return "application/javascript";
+        case ".png": return "image/png";
+        case ".gif": return "image/gif";
+        case ".bmp": return "image/bmp";
+        case ".ico": return "image/x-icon";
+      }
+      return "application/octed-stream";
+    }
+    public JObject writeUISettings(ref HTTPServerRequest request) {
+      JObject result = new JObject();
+      JObject jrequest = null;
+      try {
+        using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+          jrequest = JObject.Parse(tr.ReadToEnd());
+        }
+        string settingsPath = Path.Combine(Core.BaseDirectroy, "ui", "settings.json");
+        File.WriteAllText(settingsPath, jrequest.ToString(Formatting.Indented));
+        result["error"] = new JObject();
+        result["error"]["id"] = "SUCCESS";
+        result["error"]["string"] = "Success";
+      } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "EXCEPTION";
+        result["error"]["string"] = e.ToString();
+      }
+      return result;
+    }
+
+    public bool gotoMechBay(SimGameState sim, ref JObject error) {
+      int id = UnityHTTPQueue.AddTask("gotomechbay", new JObject(), sim);
+      int watchdog = 0;
+      error = new JObject();
+      while (UnityHTTPQueue.isTaskDone(id) == false) {
+        System.Threading.Thread.Sleep(100);
+        ++watchdog;
+        if (watchdog > 3000) {
+          error["error"] = new JObject();
+          error["error"]["id"] = "TIMEOUT";
+          error["error"]["string"] = "Operation timeout";
+          return false;
+        }
+      }
+      HTTPTask task = UnityHTTPQueue.GetTask(id);
+      UnityHTTPQueue.CommitTask(id);
+      JObject result = task.responce;
+      if (result["error"] != null) {
+        if ((string)result["error"]["id"] == "SUCCESS") { return true; }
+      }
+      error = result;
+      return false;
+    }
+    public JObject openMechInLab(SimGameState sim,ref HTTPServerRequest request) {
+      JObject result = new JObject();
+      JObject jrequest = new JObject();
+      try {
+        using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
+          jrequest = JObject.Parse(tr.ReadToEnd());
+        }
+        if(gotoMechBay(sim,ref result) == false) {
+          return result;
+        }
+        int id = UnityHTTPQueue.AddTask("openmechlab", jrequest, sim);
+        int watchdog = 0;
+        while(UnityHTTPQueue.isTaskDone(id) == false) {
+          System.Threading.Thread.Sleep(100);
+          ++watchdog;
+          if (watchdog > 3000) {
+            result["error"] = new JObject();
+            result["error"]["id"] = "TIMEOUT";
+            result["error"]["string"] = "Operation timeout";
+          }
+        }
+        HTTPTask task = UnityHTTPQueue.GetTask(id);
+        UnityHTTPQueue.CommitTask(id);
+        result = task.responce;
+      } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "EXCEPTION";
+        result["error"]["string"] = e.ToString();
+      }
+      return result;
+    }
     public JObject GetAnswer(ref HTTPServerRequest request) {
       SimGameState sim = UnityGameInstance.BattleTechGame.Simulation;
       JObject content = null;
@@ -203,6 +948,36 @@ namespace MechEditor {
       } else
       if (request.URI.StartsWith("/addmechfromfile")) {
         content = addMechFromFile(sim, ref request);
+      } else
+      if (request.URI.StartsWith("/addvehiclefromfile")) {
+        content = addVehiclemFromFile(sim, ref request);
+      } else
+      if (request.URI.StartsWith("/addmechfromdb")) {
+        content = addMechFromDatabase(sim, ref request);
+      } else
+      if (request.URI.StartsWith("/getmechlabmech")) {
+        content = getMechBayMech(sim, ref request);
+      } else
+      if (request.URI.StartsWith("/addallequipment")) {
+        content = addAllEqupment(sim, ref request);
+      } else
+      if (request.URI.StartsWith("/getavaiblelists")) {
+        content = getAvaibleLists();
+      } else
+      if (request.URI.StartsWith("/uisettings")) {
+        content = writeUISettings(ref request);
+      } else
+      if (request.URI.StartsWith("/openmechlab")) {
+        content = openMechInLab(sim,ref request);
+      } else
+      if (request.URI.StartsWith("/get/")) {
+        string itemname = Path.GetFileName(request.URI);
+        string listname = Path.GetFileName(Path.GetDirectoryName(request.URI));
+        content = getDefFromDatabase(sim,listname,itemname);
+      } else
+      if (request.URI.StartsWith("/set/")) {
+        string listname = Path.GetFileName(request.URI);
+        content = setDefToDataBase(sim, listname, ref request);
       } else { 
         content = new JObject();
         content["error"] = new JObject();
@@ -213,11 +988,18 @@ namespace MechEditor {
     }
     public void HandleRequest(HTTPServerRequest request, HTTPServerResponse response) {
       try {
-        response.ContentType = "application/json";
-        response.StatusAndReason = HTTPServerResponse.HTTPStatus.HTTP_OK;
+        response.Add("Access-Control-Allow-Origin","*");
         Log.M.TWL(0, "Incoming URI:" + request.URI);
+        string URI = request.URI;
+        if (URI == "/") { URI = "/ui/index.html"; }
+        if (URI == "/ui/") { URI = "/ui/index.html"; }
+        if (URI.StartsWith("/ui/")) {
+          SendResponce(URI, ref response);
+          return;
+        }
         JObject content = GetAnswer(ref request);
         SendResponce(ref content, ref response);
+        return;
       }catch(Exception e) {
         Log.M.TWL(0, e.ToString(), true);
       }
@@ -231,6 +1013,7 @@ namespace MechEditor {
 
   public static class Core {
     public static Settings settings { get; set; }
+    public static string BaseDirectroy { get; set; }
     public static HTTPServer server { get; set; }
     public static void FinishedLoading(List<string> loadOrder) {
       Log.M.TWL(0, "FinishedLoading", true);
@@ -245,12 +1028,31 @@ namespace MechEditor {
     }
     public static void Init(string directory, string settingsJson) {
       Log.BaseDirectory = directory;
+      Core.BaseDirectroy = directory;
       Core.settings = JsonConvert.DeserializeObject<MechEditor.Settings>(settingsJson);
       Log.InitLog();
       Log.M.TWL(0, "Initing... " + directory + " version: " + Assembly.GetExecutingAssembly().GetName().Version + "\n", true);
       try {
-        var harmony = HarmonyInstance.Create("ru.mission.customvoices");
+        var harmony = HarmonyInstance.Create("ru.mission.mecheditor");
         harmony.PatchAll(Assembly.GetExecutingAssembly());
+        //Type JsonLoadRequest = typeof(JsonLoadRequest<>);
+        //Type originalsStore = typeof(OriginalsStore<>);
+        //FieldInfo[] fields = typeof(DataManager).GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
+        /*foreach (FieldInfo field in fields) {
+          if (field.FieldType.IsGenericType == false) { continue; }
+          Type[] typeArguments = field.FieldType.GetGenericArguments();
+          if (typeArguments.Length == 0) { continue; }
+          if (typeArguments[0] == typeof(ContentPackDef)) { continue; }
+          if (typeof(IJsonTemplated).IsAssignableFrom(typeArguments[0]) == false) { continue; }
+          Type JsonLoadRequestTyped = JsonLoadRequest.M(new Type[] { typeArguments[0] });
+          MethodInfo OnLoadedWithJSON = JsonLoadRequestTyped.GetMethod("OnLoadedWithJSON", BindingFlags.Instance | BindingFlags.NonPublic);
+          if (OnLoadedWithJSON == null) { continue; };
+          Type originalsStoreTyped = originalsStore.MakeGenericType(new Type[] { typeArguments[0] });
+          MethodInfo prefix = originalsStoreTyped.GetMethod("Prefix",BindingFlags.Instance | BindingFlags.Public);
+          MethodInfo postfix = originalsStoreTyped.GetMethod("Postfix", BindingFlags.Instance | BindingFlags.Public);
+          harmony.Patch(OnLoadedWithJSON,new HarmonyMethod(prefix), new HarmonyMethod(postfix));
+          Log.M.WL(0, JsonLoadRequestTyped.GetType().ToString() +"/"+ typeArguments[0].ToString()+ " - patched");
+        }*/
       } catch (Exception e) {
         Log.LogWrite(e.ToString(), true);
       }

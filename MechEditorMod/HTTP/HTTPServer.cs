@@ -107,12 +107,12 @@ namespace HybridDSP.Net.HTTP
             if (Socket.OSSupportsIPv6)
             {
                 addressFamily = AddressFamily.InterNetworkV6;
-                bindAddress = IPAddress.IPv6Any;
+                bindAddress = IPAddress.IPv6Loopback;
             }
             else
             {
                 addressFamily = AddressFamily.InterNetwork;
-                bindAddress = IPAddress.Any;
+                bindAddress = IPAddress.Loopback;
             }
 
             _socket = new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
