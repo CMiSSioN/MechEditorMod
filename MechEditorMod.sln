@@ -9,6 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AdditionalFiles", "Addition
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MEM", "MEM", "{42FFDC14-1268-4C8A-BB98-63E9BEDEC6BE}"
 	ProjectSection(SolutionItems) = preProject
+		AdditionalFiles\MEM\ui\index.html = AdditionalFiles\MEM\ui\index.html
 		AdditionalFiles\MEM\mod.json = AdditionalFiles\MEM\mod.json
 		AdditionalFiles\MEM\readme.txt = AdditionalFiles\MEM\readme.txt
 	EndProjectSection
