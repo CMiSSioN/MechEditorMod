@@ -292,39 +292,42 @@ namespace MechEditor {
     public static void Postfix(object __instance, string text, ref string __state) {
       object resource = Traverse.Create(__instance).Field("resource").GetValue();
       if ((resource as MechComponentDef) != null) {
-        (resource as MechComponentDef).setOriginal(text);
+        (resource as MechComponentDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as MechComponentDef).Description.Id + " postfix");
       }else
       if ((resource as HardpointDataDef) != null) {
-        (resource as HardpointDataDef).setOriginal(text);
+        (resource as HardpointDataDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as HardpointDataDef).ID + " postfix");
       } else
       if ((resource as MechDef) != null) {
-        (resource as MechDef).setOriginal(text);
+        (resource as MechDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as MechDef).Description.Id + " postfix");
+        if((resource as MechDef).Description.Id == "mechdef_quad") {
+          Log.M.WL(0, __state);
+        }
       } else
       if ((resource as VehicleDef) != null) {
-        (resource as VehicleDef).setOriginal(text);
+        (resource as VehicleDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as VehicleDef).Description.Id + " postfix");
       } else
       if ((resource as TurretDef) != null) {
-        (resource as TurretDef).setOriginal(text);
+        (resource as TurretDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as TurretDef).Description.Id + " postfix");
       } else
       if ((resource as ChassisDef) != null) {
-        (resource as ChassisDef).setOriginal(text);
+        (resource as ChassisDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as ChassisDef).Description.Id + " postfix");
       } else
       if ((resource as VehicleChassisDef) != null) {
-        (resource as VehicleChassisDef).setOriginal(text);
+        (resource as VehicleChassisDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as VehicleChassisDef).Description.Id + " postfix");
       } else
       if ((resource as TurretChassisDef) != null) {
-        (resource as TurretChassisDef).setOriginal(text);
+        (resource as TurretChassisDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as TurretChassisDef).Description.Id + " postfix");
       }else
       if ((resource as AmmunitionDef) != null) {
-        (resource as AmmunitionDef).setOriginal(text);
+        (resource as AmmunitionDef).setOriginal(__state);
         Log.M.TWL(0, "StringDataLoadRequest.OnLoadedWithText " + (resource as AmmunitionDef).Description.Id + " postfix");
       }
     }

@@ -3,7 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28306.52
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MechEditorMod", "MechEditorMod\MechEditorMod.csproj", "{FCDF25B6-2707-4A2A-A017-FA3ECCFA6CAB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MechEditorMod", "MechEditorMod\MechEditorMod.csproj", "{971D1FFA-172B-43A4-B791-617AD2C8B8A0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AdditionalFiles", "AdditionalFiles", "{313BB771-BEA4-4A82-BF01-CC263003F260}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MEM", "MEM", "{42FFDC14-1268-4C8A-BB98-63E9BEDEC6BE}"
+	ProjectSection(SolutionItems) = preProject
+		AdditionalFiles\MEM\mod.json = AdditionalFiles\MEM\mod.json
+		AdditionalFiles\MEM\readme.txt = AdditionalFiles\MEM\readme.txt
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,13 +19,16 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{FCDF25B6-2707-4A2A-A017-FA3ECCFA6CAB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FCDF25B6-2707-4A2A-A017-FA3ECCFA6CAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FCDF25B6-2707-4A2A-A017-FA3ECCFA6CAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FCDF25B6-2707-4A2A-A017-FA3ECCFA6CAB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{971D1FFA-172B-43A4-B791-617AD2C8B8A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{971D1FFA-172B-43A4-B791-617AD2C8B8A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{971D1FFA-172B-43A4-B791-617AD2C8B8A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{971D1FFA-172B-43A4-B791-617AD2C8B8A0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{42FFDC14-1268-4C8A-BB98-63E9BEDEC6BE} = {313BB771-BEA4-4A82-BF01-CC263003F260}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {471616AB-3645-4DD8-B1E5-BBDB23533EC2}
