@@ -5,7 +5,7 @@
     <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   </head>
   <body>
     <div id="app"></div>
@@ -21,7 +21,7 @@
           setModSettings(JSON.parse(text));
         }
 
-        return <div className="container-fluid" style={{marginTop: 30}}>
+        const jsx = (<div className="container-fluid" style={{marginTop: 30}}>
           <div className="row justify-content-center">
             <div className="col-4">
               <h2 style={{textAlign: 'center'}}>Mech Editor Mod</h2>
@@ -35,7 +35,9 @@
             </div>
           </div>
           {modSettings && (<AllBays port={modSettings.Settings.httpServerPort} />)}
-        </div>
+        </div>);
+
+        return jsx;
       }
 
       const ModSettings = ({port, version}) => {
