@@ -52,11 +52,11 @@ namespace MechEditor {
       if (i_AddToFakeVCh == null) { return; }
       i_AddToFakeVCh(def);
     }
-    public delegate int d_VehicleShift(SimGameState sim);
-    private static d_VehicleShift i_VehicleShift = null;
-    public static int VehicleShift(this SimGameState sim) {
-      if (i_VehicleShift == null) { return 0; }
-      return i_VehicleShift(sim);
+    public delegate int d_HangarShift(MechDef mechDef);
+    private static d_HangarShift i_HangarShift = null;
+    public static int HangarShift(this MechDef mechDef) {
+      if (i_HangarShift == null) { return 0; }
+      return i_HangarShift(mechDef);
     }
     private static MethodInfo i_FixMech = null;
     private static object AutoFixer_Shared = null;
@@ -78,46 +78,46 @@ namespace MechEditor {
             Log.M.WL(1, "CustomComponents.AutoFixer.Shared " + (AutoFixer_Shared == null ? "not found" : "found"));
           }
         }
-        if (assembly.FullName.StartsWith("CustomUnits")) {
-          MethodInfo mi_IsChassisFake = assembly.GetType("CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch").GetMethod("IsChassisFake", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(MechDef) }, null);
-          Log.M.WL(1, "CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch.IsChassisFake " + (mi_IsChassisFake == null ? "not found" : "found"));
+        if (assembly.FullName.StartsWith("CustomUnits,")) {
+          MethodInfo mi_IsChassisFake = assembly.GetType("CustomUnits.FakeDatabase").GetMethod("IsVehicle", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(MechDef) }, null);
+          Log.M.WL(1, "FakeDatabase.IsVehicle " + (mi_IsChassisFake == null ? "not found" : "found"));
           {
-            var dm = new DynamicMethod("CACIsChassisFake", typeof(bool), new Type[] { typeof(MechDef) });
+            var dm = new DynamicMethod("CACIsVehicle", typeof(bool), new Type[] { typeof(MechDef) });
             var gen = dm.GetILGenerator();
             gen.Emit(OpCodes.Ldarg_0);
             gen.Emit(OpCodes.Call, mi_IsChassisFake);
             gen.Emit(OpCodes.Ret);
             i_IsChassisFake = (d_IsChassisFake)dm.CreateDelegate(typeof(d_IsChassisFake));
           }
-          MethodInfo mi_AddToFakeV = assembly.GetType("CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch").GetMethod("AddToFake", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(VehicleDef) }, null);
-          Log.M.WL(1, "CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch.AddToFake " + (mi_AddToFakeV == null ? "not found" : "found"));
+          //MethodInfo mi_AddToFakeV = assembly.GetType("CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch").GetMethod("AddToFake", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(VehicleDef) }, null);
+          //Log.M.WL(1, "CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch.AddToFake " + (mi_AddToFakeV == null ? "not found" : "found"));
+          //{
+          //  var dm = new DynamicMethod("CACAddToFakeV", null, new Type[] { typeof(VehicleDef) });
+          //  var gen = dm.GetILGenerator();
+          //  gen.Emit(OpCodes.Ldarg_0);
+          //  gen.Emit(OpCodes.Call, mi_AddToFakeV);
+          //  gen.Emit(OpCodes.Ret);
+          //  i_AddToFakeV = (d_AddToFakeV)dm.CreateDelegate(typeof(d_AddToFakeV));
+          //}
+          //MethodInfo mi_AddToFakeVCh = assembly.GetType("CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch").GetMethod("AddToFake", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(VehicleChassisDef) }, null);
+          //Log.M.WL(1, "CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch.AddToFake " + (mi_AddToFakeVCh == null ? "not found" : "found"));
+          //{
+          //  var dm = new DynamicMethod("CACAddToFakeVCh", null, new Type[] { typeof(VehicleChassisDef) });
+          //  var gen = dm.GetILGenerator();
+          //  gen.Emit(OpCodes.Ldarg_0);
+          //  gen.Emit(OpCodes.Call, mi_AddToFakeVCh);
+          //  gen.Emit(OpCodes.Ret);
+          //  i_AddToFakeVCh = (d_AddToFakeVCh)dm.CreateDelegate(typeof(d_AddToFakeVCh));
+          //}
+          MethodInfo mi_VehicleShift = assembly.GetType("CustomUnits.CustomHangarHelper").GetMethod("GetHangarShift", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(MechDef) }, null);
+          Log.M.WL(1, "CustomUnits.CustomHangarHelper.GetHangarShift " + (mi_VehicleShift == null ? "not found" : "found"));
           {
-            var dm = new DynamicMethod("CACAddToFakeV", null, new Type[] { typeof(VehicleDef) });
-            var gen = dm.GetILGenerator();
-            gen.Emit(OpCodes.Ldarg_0);
-            gen.Emit(OpCodes.Call, mi_AddToFakeV);
-            gen.Emit(OpCodes.Ret);
-            i_AddToFakeV = (d_AddToFakeV)dm.CreateDelegate(typeof(d_AddToFakeV));
-          }
-          MethodInfo mi_AddToFakeVCh = assembly.GetType("CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch").GetMethod("AddToFake", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(VehicleChassisDef) }, null);
-          Log.M.WL(1, "CustomUnits.BattleTechResourceLocator_RefreshTypedEntries_Patch.AddToFake " + (mi_AddToFakeVCh == null ? "not found" : "found"));
-          {
-            var dm = new DynamicMethod("CACAddToFakeVCh", null, new Type[] { typeof(VehicleChassisDef) });
-            var gen = dm.GetILGenerator();
-            gen.Emit(OpCodes.Ldarg_0);
-            gen.Emit(OpCodes.Call, mi_AddToFakeVCh);
-            gen.Emit(OpCodes.Ret);
-            i_AddToFakeVCh = (d_AddToFakeVCh)dm.CreateDelegate(typeof(d_AddToFakeVCh));
-          }
-          MethodInfo mi_VehicleShift = assembly.GetType("CustomUnits.SimGameState_AddMech").GetMethod("VehicleShift", BindingFlags.Static | BindingFlags.Public);
-          Log.M.WL(1, "CustomUnits.SimGameState_AddMech.VehicleShift " + (mi_VehicleShift == null ? "not found" : "found"));
-          {
-            var dm = new DynamicMethod("CACVehicleShift", typeof(int), new Type[] { typeof(SimGameState) });
+            var dm = new DynamicMethod("CACVehicleShift", typeof(int), new Type[] { typeof(MechDef) });
             var gen = dm.GetILGenerator();
             gen.Emit(OpCodes.Ldarg_0);
             gen.Emit(OpCodes.Call, mi_VehicleShift);
             gen.Emit(OpCodes.Ret);
-            i_VehicleShift = (d_VehicleShift)dm.CreateDelegate(typeof(d_VehicleShift));
+            i_HangarShift = (d_HangarShift)dm.CreateDelegate(typeof(d_HangarShift));
           }
         }
       }
@@ -382,11 +382,15 @@ namespace MechEditor {
         using (FileStream FS = new FileStream(fullname, FileMode.Open, FileAccess.Read, FileShare.Read)) {
           byte[] Buffer = new byte[1024];
           int Count = 0;
+          int size = 0;
           while (FS.Position < FS.Length) {
             Count = FS.Read(Buffer, 0, Buffer.Length);
             output.Write(Buffer, 0, Count);
+            size += Count;
           }
+          Log.M.WL(1, "output size:"+ size);
         }
+        output.Flush();
       }
     }
     public JObject listItems(string fieldName) {
@@ -486,9 +490,9 @@ namespace MechEditor {
         int bayIndex = (int)jrequest["bayIndex"];
         string mechdefId = (string)jrequest["mechDefId"];
         MechDef def = sim.DataManager.MechDefs.Get(mechdefId);
-        if (def.IsChassisFake()) {
-          bayIndex += sim.VehicleShift();
-        }
+        //if (def.IsChassisFake()) {
+          bayIndex += def.HangarShift();
+        //}
         sim.AddMech(bayIndex, def, true, true, false);
         result["error"] = new JObject();
         result["error"]["id"] = "SUCCESS";
@@ -535,6 +539,191 @@ namespace MechEditor {
         return result;
       }
     }
+    public JObject reloadDefinition(string resourceType, string itemId) {
+      if(Enum.TryParse<BattleTechResourceType>(resourceType, out BattleTechResourceType resType) == false){
+        JObject result = new JObject();
+        result["error"] = new JObject();
+        result["error"]["id"] = "NOTAVAIBLE";
+        result["error"]["string"] = resourceType + " is not valid resourceType";
+        return result;
+      }
+      switch (resType) {
+        case BattleTechResourceType.ChassisDef: return reloadDefinition<ChassisDef>(resType, itemId);
+        case BattleTechResourceType.VehicleChassisDef: return reloadDefinition<VehicleChassisDef>(resType, itemId);
+        case BattleTechResourceType.TurretChassisDef: return reloadDefinition<TurretChassisDef>(resType, itemId);
+        case BattleTechResourceType.TurretDef: return reloadDefinition<TurretDef>(resType, itemId);
+        case BattleTechResourceType.AmmunitionDef: return reloadDefinition<AmmunitionDef>(resType, itemId);
+        case BattleTechResourceType.AmmunitionBoxDef: return reloadDefinition<AmmunitionBoxDef>(resType, itemId);
+        case BattleTechResourceType.JumpJetDef: return reloadDefinition<JumpJetDef>(resType, itemId);
+        case BattleTechResourceType.HeatSinkDef: return reloadDefinition<HeatSinkDef>(resType, itemId);
+        case BattleTechResourceType.UpgradeDef: return reloadDefinition<UpgradeDef>(resType, itemId);
+        case BattleTechResourceType.WeaponDef: return reloadDefinition<WeaponDef>(resType, itemId);
+        case BattleTechResourceType.HardpointDataDef: return reloadDefinition<HardpointDataDef>(resType, itemId);
+        case BattleTechResourceType.VehicleDef: return reloadDefinition<VehicleDef>(resType, itemId);
+        case BattleTechResourceType.MechDef: return reloadDefinition<MechDef>(resType, itemId);
+        default: {
+          JObject result = new JObject();
+          result["error"] = new JObject();
+          result["error"]["id"] = "NOTAVAIBLE";
+          result["error"]["string"] = resourceType + " is read only";
+          return result;
+        }
+      }
+    }
+    public static string getListNameFromType<T>() where T : IJsonTemplated {
+      if (typeof(T) == typeof(ChassisDef)) { return "chassisDefs"; }else
+      if (typeof(T) == typeof(VehicleChassisDef)) { return "vehicleChassisDefs"; } else
+      if (typeof(T) == typeof(TurretChassisDef)) { return "turretChassisDefs"; } else
+      if (typeof(T) == typeof(TurretDef)) { return "turretDefs"; } else
+      if (typeof(T) == typeof(AmmunitionDef)) { return "ammoDefs"; } else
+      if (typeof(T) == typeof(AmmunitionBoxDef)) { return "ammoBoxDefs"; } else
+      if (typeof(T) == typeof(JumpJetDef)) { return "jumpJetDefs"; } else
+      if (typeof(T) == typeof(HeatSinkDef)) { return "heatSinkDefs"; } else
+      if (typeof(T) == typeof(UpgradeDef)) { return "upgradeDefs"; } else
+      if (typeof(T) == typeof(WeaponDef)) { return "weaponDefs"; } else
+      if (typeof(T) == typeof(HardpointDataDef)) { return "hardpointDataDefs"; } else
+      if (typeof(T) == typeof(VehicleDef)) { return "vehicleDefs"; }
+      if (typeof(T) == typeof(MechDef)) { return "mechDefs"; }
+      return string.Empty;
+    }
+    public static string getListNameFromResource(BattleTechResourceType resType){
+      switch (resType) {
+        case BattleTechResourceType.ChassisDef: return "chassisDefs";
+        case BattleTechResourceType.VehicleChassisDef: return "vehicleChassisDefs";
+        case BattleTechResourceType.TurretChassisDef: return "turretChassisDefs";
+        case BattleTechResourceType.TurretDef: return "turretDefs";
+        case BattleTechResourceType.AmmunitionDef: return "ammoDefs";
+        case BattleTechResourceType.AmmunitionBoxDef: return "ammoBoxDefs";
+        case BattleTechResourceType.JumpJetDef: return "jumpJetDefs";
+        case BattleTechResourceType.HeatSinkDef: return "heatSinkDefs";
+        case BattleTechResourceType.UpgradeDef: return "upgradeDefs";
+        case BattleTechResourceType.WeaponDef: return "weaponDefs";
+        case BattleTechResourceType.HardpointDataDef: return "hardpointDataDefs";
+        case BattleTechResourceType.VehicleDef: return "vehicleDefs";
+        case BattleTechResourceType.MechDef: return "mechDefs";
+      }
+      return string.Empty;
+    }
+    public JObject reloadDefinition<T>(BattleTechResourceType resourceType, string itemId) where T : IJsonTemplated, new() {
+      JObject result = new JObject();
+      if (UnityGameInstance.BattleTechGame.DataManager == null) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "NODATAMANAGER";
+        result["error"]["string"] = "No DataManager available";
+        return result;
+      }
+      try {
+        string fieldName = getListNameFromType<T>();
+        if (string.IsNullOrEmpty(fieldName)) {
+          result["error"] = new JObject();
+          result["error"]["id"] = "NOTAVAIBLE";
+          result["error"]["string"] = "Items for this resource type can't be reloaded";
+          return result;
+        }
+        DictionaryStore<T> list = Traverse.Create(UnityGameInstance.BattleTechGame.DataManager).Field<DictionaryStore<T>>(fieldName).Value;
+        if (list.Exists(itemId) == false) {
+          result["error"] = new JObject();
+          result["error"]["id"] = "NOTAVAIBLE";
+          result["error"]["string"] = "Item with this id is not loaded, so can't be reloaded";
+          return result;
+        }
+        VersionManifestEntry entry = UnityGameInstance.BattleTechGame.DataManager.ResourceLocator.EntryByID(itemId, resourceType);
+        if (list.Exists(itemId) == false) {
+          result["error"] = new JObject();
+          result["error"]["id"] = "NOTAVAIBLE";
+          result["error"]["string"] = "Item with this id is not in manifest";
+          return result;
+        }
+        string content = string.Empty;
+        using (FileStream arg = new FileStream(entry.FilePath, FileMode.Open, FileAccess.Read)) {
+          StreamReader streamReader = new StreamReader((Stream)arg);
+          content = streamReader.ReadToEnd();
+        }
+        T def = list.Get(itemId);
+        def.FromJSON(content);
+        if (typeof(T) == typeof(ChassisDef)) {
+          (def as ChassisDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as ChassisDef).Refresh();
+          (def as ChassisDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(MechDef)) {
+          (def as MechDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as MechDef).Refresh();
+          (def as MechDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(VehicleDef)) {
+          (def as VehicleDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as VehicleDef).Refresh();
+          (def as VehicleDef).AddToFake();
+          (def as VehicleDef).setOriginal(content);
+          DictionaryStore<MechDef> mechs = Traverse.Create(UnityGameInstance.BattleTechGame.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value;
+          MechDef mechDef = mechs.Get(itemId);
+          mechDef.FromJSON(content);
+          mechDef.DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          mechDef.Refresh();
+          mechDef.setOriginal(content);
+        } else
+        if (typeof(T) == typeof(VehicleChassisDef)) {
+          (def as VehicleChassisDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as VehicleChassisDef).Refresh();
+          (def as VehicleChassisDef).AddToFake();
+          (def as VehicleChassisDef).setOriginal(content);
+          DictionaryStore<ChassisDef> chassis = Traverse.Create(UnityGameInstance.BattleTechGame.DataManager).Field<DictionaryStore<ChassisDef>>("chassisDefs").Value;
+          ChassisDef chassisDef = chassis.Get(itemId);
+          chassisDef.FromJSON(content);
+          chassisDef.DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          chassisDef.Refresh();
+          chassisDef.setOriginal(content);
+        } else
+        if (typeof(T) == typeof(TurretDef)) {
+          (def as TurretDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as TurretDef).Refresh();
+          (def as TurretDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(TurretChassisDef)) {
+          (def as TurretChassisDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as TurretChassisDef).Refresh();
+          (def as TurretChassisDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(HardpointDataDef)) {
+          (def as HardpointDataDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(AmmunitionDef)) {
+          (def as AmmunitionDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(AmmunitionBoxDef)) {
+          (def as AmmunitionBoxDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as AmmunitionBoxDef).refreshAmmo(UnityGameInstance.BattleTechGame.DataManager);
+          (def as AmmunitionBoxDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(WeaponDef)) {
+          (def as WeaponDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as WeaponDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(HeatSinkDef)) {
+          (def as HeatSinkDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as WeaponDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(JumpJetDef)) {
+          (def as JumpJetDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as JumpJetDef).setOriginal(content);
+        } else
+        if (typeof(T) == typeof(UpgradeDef)) {
+          (def as UpgradeDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
+          (def as UpgradeDef).setOriginal(content);
+        }
+        result["error"] = new JObject();
+        result["error"]["id"] = "SUCCESS";
+        result["error"]["string"] = "Success";
+        return result;
+      } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "EXCEPTION";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
+
     public JObject setDefToDataBase<T>(string fieldName, ref HTTPServerRequest request) where T : new() {
       JObject jrequest = null;
       JObject result = new JObject();
@@ -730,6 +919,7 @@ namespace MechEditor {
       try {
         MechBayPanel mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
         if (mechBay.Initialized) {
+          if (result == null) { result = new JObject(); }
           result["error"] = new JObject();
           result["error"]["id"] = "MECHBAYINITED";
           result["error"]["string"] = "Adding mech is not allowed while in mechlab";
@@ -754,11 +944,13 @@ namespace MechEditor {
         Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Add(def.Description.Id,def);
         int bayIndex = (int)jrequest["bayIndex"];
         sim.AddMech(bayIndex, def, true, true, false);
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "SUCCESS";
         result["error"]["string"] = "Success";
         return result;
       } catch (Exception e) {
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "REQUESTERROR";
         result["error"]["string"] = e.ToString();
@@ -778,6 +970,7 @@ namespace MechEditor {
       try {
         MechBayPanel mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
         if (mechBay.Initialized) {
+          if (result == null) { result = new JObject(); }
           result["error"] = new JObject();
           result["error"]["id"] = "MECHBAYINITED";
           result["error"]["string"] = "Adding vehicle is not allowed while in mechlab";
@@ -804,13 +997,15 @@ namespace MechEditor {
           Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Remove(def.Description.Id);
         }
         Traverse.Create(sim.DataManager).Field<DictionaryStore<MechDef>>("mechDefs").Value.Add(def.Description.Id, fakeMechDef);
-        int bayIndex = (int)jrequest["bayIndex"]+ sim.VehicleShift();
+        int bayIndex = (int)jrequest["bayIndex"]+ fakeMechDef.HangarShift();
         sim.AddMech(bayIndex, fakeMechDef, true, true, false);
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "SUCCESS";
         result["error"]["string"] = "Success";
         return result;
       } catch (Exception e) {
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "REQUESTERROR";
         result["error"]["string"] = e.ToString();
@@ -828,12 +1023,13 @@ namespace MechEditor {
       JObject jrequest = null;
       JObject result = null;
       MechBayPanel mechBay = Traverse.Create(sim.RoomManager.MechBayRoom).Field<MechBayPanel>("mechBay").Value;
-      if (mechBay.Initialized) {
-        result["error"] = new JObject();
-        result["error"]["id"] = "MECHBAYINITED";
-        result["error"]["string"] = "Adding equipment is not allowed while in mechlab";
-        return result;
-      }
+      //if (mechBay.Initialized) {
+      //  if (result == null) { result = new JObject(); }
+      //  result["error"] = new JObject();
+      //  result["error"]["id"] = "MECHBAYINITED";
+      //  result["error"]["string"] = "Adding equipment is not allowed while in mechlab";
+      //  return result;
+      //}
       try {
         using (Stream ostr = request.GetRequestStream()) using (TextReader tr = new StreamReader(ostr)) {
           jrequest = JObject.Parse(tr.ReadToEnd());
@@ -911,6 +1107,7 @@ namespace MechEditor {
         float Rarity = float.NaN; if (jrequest["Rarity"] != null) { Rarity = (float)jrequest["Rarity"]; }; if (float.IsNaN(Rarity)) { Rarity = mechBay.mechLab.originalMechDef.Description.Rarity; }
 
         if (mechBay.mechLab.Initialized == false) {
+          if (result == null) { result = new JObject(); }
           result["error"] = new JObject();
           result["error"]["id"] = "MECHLABNOTINITED";
           result["error"]["string"] = "Mech lab not initialized";
@@ -946,6 +1143,7 @@ namespace MechEditor {
         result["Locations"] = JArray.Parse(Locations_string);
         return result;
       }catch(Exception e) {
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "REQUESTERROR";
         result["error"]["string"] = e.ToString();
@@ -964,7 +1162,7 @@ namespace MechEditor {
       JObject result = new JObject();
       result["baysCount"] = max;
       result["mechBays"] = new JArray();
-      result["vehicleBays"] = new JArray();
+      //result["vehicleBays"] = new JArray();
       for (int bayIndex = 0; bayIndex < max; ++bayIndex) {
         JObject mechSlot = new JObject();
         JObject vehicleSlot = new JObject();
@@ -984,22 +1182,22 @@ namespace MechEditor {
           mechSlot["active"] = false;
           mechSlot["definition"] = new JObject();
         }
-        int vehicleIndex = bayIndex + sim.VehicleShift();
-        if (sim.ActiveMechs.TryGetValue(vehicleIndex, out mechDef)) {
-          vehicleSlot["empty"] = false;
-          vehicleSlot["active"] = true;
-          vehicleSlot["definition"] = JObject.Parse(mechDef.ToJSON());
-        } else if (sim.ReadyingMechs.TryGetValue(vehicleIndex, out mechDef)) {
-          vehicleSlot["empty"] = false;
-          vehicleSlot["active"] = false;
-          vehicleSlot["definition"] = JObject.Parse(mechDef.ToJSON());
-        } else {
-          vehicleSlot["empty"] = false;
-          vehicleSlot["active"] = false;
-          vehicleSlot["definition"] = new JObject();
-        }
+        //int vehicleIndex = bayIndex + sim.VehicleShift();
+        //if (sim.ActiveMechs.TryGetValue(vehicleIndex, out mechDef)) {
+        //  vehicleSlot["empty"] = false;
+        //  vehicleSlot["active"] = true;
+        //  vehicleSlot["definition"] = JObject.Parse(mechDef.ToJSON());
+        //} else if (sim.ReadyingMechs.TryGetValue(vehicleIndex, out mechDef)) {
+        //  vehicleSlot["empty"] = false;
+        //  vehicleSlot["active"] = false;
+        //  vehicleSlot["definition"] = JObject.Parse(mechDef.ToJSON());
+        //} else {
+        //  vehicleSlot["empty"] = false;
+        //  vehicleSlot["active"] = false;
+        //  vehicleSlot["definition"] = new JObject();
+        //}
         (result["mechBays"] as JArray).Add(mechSlot);
-        (result["vehicleBays"] as JArray).Add(vehicleSlot);
+        //(result["vehicleBays"] as JArray).Add(vehicleSlot);
       }
       return result;
     }
@@ -1028,10 +1226,12 @@ namespace MechEditor {
         }
         string settingsPath = Path.Combine(Core.BaseDirectroy, "ui", "settings.json");
         File.WriteAllText(settingsPath, jrequest.ToString(Formatting.Indented));
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "SUCCESS";
         result["error"]["string"] = "Success";
       } catch (Exception e) {
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "EXCEPTION";
         result["error"]["string"] = e.ToString();
@@ -1094,6 +1294,7 @@ namespace MechEditor {
         UnityHTTPQueue.CommitTask(id);
         result = task.responce;
       } catch (Exception e) {
+        if (result == null) { result = new JObject(); }
         result["error"] = new JObject();
         result["error"]["id"] = "EXCEPTION";
         result["error"]["string"] = e.ToString();
@@ -1239,17 +1440,22 @@ namespace MechEditor {
         content = writeUISettings(ref request);
       } else
       if (request.URI.StartsWith("/openmechlab")) {
-        content = openMechInLab(sim,ref request);
+        content = openMechInLab(sim, ref request);
       } else
       if (request.URI.StartsWith("/get/")) {
         string itemname = Path.GetFileName(request.URI);
         string listname = Path.GetFileName(Path.GetDirectoryName(request.URI));
-        content = getDefFromDatabase(listname,itemname);
+        content = getDefFromDatabase(listname, itemname);
       } else
       if (request.URI.StartsWith("/set/")) {
         string listname = Path.GetFileName(request.URI);
         content = setDefToDataBase(listname, ref request);
-      } else { 
+      }else
+      if (request.URI.StartsWith("/reload/")) {
+        string itemId = Path.GetFileName(request.URI);
+        string resourceType = Path.GetFileName(Path.GetDirectoryName(request.URI));
+        content = reloadDefinition(resourceType, itemId);
+      } else {
         content = new JObject();
         content["error"] = new JObject();
         content["error"]["id"] = "UNKNOWN";
