@@ -418,6 +418,169 @@ namespace MechEditor {
         return content;
       }
     }
+    public JObject viewResource(string resourceType) {
+      if (Enum.TryParse<BattleTechResourceType>(resourceType, out BattleTechResourceType resType) == false) {
+        JObject result = new JObject();
+        result["error"] = new JObject();
+        result["error"]["id"] = "NOTAVAIBLE";
+        result["error"]["string"] = resourceType + " is not valid resourceType";
+        return result;
+      }
+      try {
+        switch (resType) {
+          case BattleTechResourceType.ChassisDef: return viewResource<ChassisDef>(resType);
+          case BattleTechResourceType.VehicleChassisDef: return viewResource<VehicleChassisDef>(resType);
+          case BattleTechResourceType.TurretChassisDef: return viewResource<TurretChassisDef>(resType);
+          case BattleTechResourceType.TurretDef: return viewResource<TurretDef>(resType);
+          case BattleTechResourceType.AmmunitionDef: return viewResource<AmmunitionDef>(resType);
+          case BattleTechResourceType.AmmunitionBoxDef: return viewResource<AmmunitionBoxDef>(resType);
+          case BattleTechResourceType.JumpJetDef: return viewResource<JumpJetDef>(resType);
+          case BattleTechResourceType.HeatSinkDef: return viewResource<HeatSinkDef>(resType);
+          case BattleTechResourceType.UpgradeDef: return viewResource<UpgradeDef>(resType);
+          case BattleTechResourceType.WeaponDef: return viewResource<WeaponDef>(resType);
+          case BattleTechResourceType.HardpointDataDef: return viewResource<HardpointDataDef>(resType);
+          case BattleTechResourceType.VehicleDef: return viewResource<VehicleDef>(resType);
+          case BattleTechResourceType.MechDef: return viewResource<MechDef>(resType);
+          default: {
+            JObject result = new JObject();
+            result["error"] = new JObject();
+            result["error"]["id"] = "NOTAVAIBLE";
+            result["error"]["string"] = resourceType + " is read only";
+            return result;
+          }
+        }
+      } catch (Exception e) {
+        JObject result = new JObject();
+        result["error"] = new JObject();
+        result["error"]["id"] = "EXCEPTION";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
+    public JObject viewResource<T>(BattleTechResourceType resourceType) where T: IJsonTemplated, new() {
+      JObject result = new JObject();
+      if (UnityGameInstance.BattleTechGame.DataManager == null) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "NODATAMANAGER";
+        result["error"]["string"] = "No DataManager available";
+        return result;
+      }
+      try {
+        string fieldName = getListNameFromType<T>();
+        if (string.IsNullOrEmpty(fieldName)) {
+          result["error"] = new JObject();
+          result["error"]["id"] = "NOTAVAIBLE";
+          result["error"]["string"] = "Items for this resource type can't be reloaded";
+          return result;
+        }
+        DictionaryStore<T> list = Traverse.Create(UnityGameInstance.BattleTechGame.DataManager).Field<DictionaryStore<T>>(fieldName).Value;
+        JArray jlist = new JArray();
+        foreach(var item in list) {
+          T def = item.Value;
+          if (typeof(T) == typeof(ChassisDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as ChassisDef).Description.Id;
+            jitem["name"] = (def as ChassisDef).Description.Name;
+            jitem["ui"] = (def as ChassisDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(MechDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as MechDef).Description.Id;
+            jitem["name"] = (def as MechDef).Description.Name;
+            jitem["ui"] = (def as MechDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(VehicleDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as VehicleDef).Description.Id;
+            jitem["name"] = (def as VehicleDef).Description.Name;
+            jitem["ui"] = (def as VehicleDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(VehicleChassisDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as VehicleChassisDef).Description.Id;
+            jitem["name"] = (def as VehicleChassisDef).Description.Name;
+            jitem["ui"] = (def as VehicleChassisDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(TurretDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as TurretDef).Description.Id;
+            jitem["name"] = (def as TurretDef).Description.Name;
+            jitem["ui"] = (def as TurretDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(TurretChassisDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as TurretChassisDef).Description.Id;
+            jitem["name"] = (def as TurretChassisDef).Description.Name;
+            jitem["ui"] = (def as TurretChassisDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(HardpointDataDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as HardpointDataDef).ID;
+            jitem["name"] = "";
+            jitem["ui"] = "";
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(AmmunitionDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as AmmunitionDef).Description.Id;
+            jitem["name"] = (def as AmmunitionDef).Description.Name;
+            jitem["ui"] = (def as AmmunitionDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(AmmunitionBoxDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as AmmunitionBoxDef).Description.Id;
+            jitem["name"] = (def as AmmunitionBoxDef).Description.Name;
+            jitem["ui"] = (def as AmmunitionBoxDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(WeaponDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as WeaponDef).Description.Id;
+            jitem["name"] = (def as WeaponDef).Description.Name;
+            jitem["ui"] = (def as WeaponDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(HeatSinkDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as HeatSinkDef).Description.Id;
+            jitem["name"] = (def as HeatSinkDef).Description.Name;
+            jitem["ui"] = (def as HeatSinkDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(JumpJetDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as JumpJetDef).Description.Id;
+            jitem["name"] = (def as JumpJetDef).Description.Name;
+            jitem["ui"] = (def as JumpJetDef).Description.UIName;
+            jlist.Add(jitem);
+          } else
+          if (typeof(T) == typeof(UpgradeDef)) {
+            JObject jitem = new JObject();
+            jitem["id"] = (def as UpgradeDef).Description.Id;
+            jitem["name"] = (def as UpgradeDef).Description.Name;
+            jitem["ui"] = (def as UpgradeDef).Description.UIName;
+            jlist.Add(jitem);
+          }
+        }
+        result["error"] = new JObject();
+        result["error"]["id"] = "SUCCESS";
+        result["error"]["string"] = "Success";
+        result["list"] = jlist;
+        return result;
+      } catch (Exception e) {
+        result["error"] = new JObject();
+        result["error"]["id"] = "EXCEPTION";
+        result["error"]["string"] = e.ToString();
+        return result;
+      }
+    }
     /*public JObject listItems(SimGameState sim, string fieldName) {
 
       FieldInfo[] fields = typeof(DataManager).GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
@@ -518,6 +681,26 @@ namespace MechEditor {
       }
       return result;
     }
+    public JObject getAvaibleRes() {
+      JObject result = new JObject();
+      //FieldInfo[] fields = typeof(DataManager).GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
+      result["resources"] = new JArray();
+      (result["resources"] as JArray).Add(BattleTechResourceType.ChassisDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.VehicleChassisDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.TurretChassisDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.TurretDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.AmmunitionDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.AmmunitionBoxDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.JumpJetDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.HeatSinkDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.UpgradeDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.WeaponDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.HardpointDataDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.VehicleDef.ToString());
+      (result["resources"] as JArray).Add(BattleTechResourceType.MechDef.ToString());
+      return result;
+    }
+
     public JObject setDefToDataBase(string fieldName, ref HTTPServerRequest request) {
       if (fieldName == "chassisDefs") { return setDefToDataBase<ChassisDef>(fieldName, ref request); }else
       if (fieldName == "vehicleChassisDefs") { return setDefToDataBase<VehicleChassisDef>(fieldName, ref request); } else
@@ -702,7 +885,7 @@ namespace MechEditor {
         } else
         if (typeof(T) == typeof(HeatSinkDef)) {
           (def as HeatSinkDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
-          (def as WeaponDef).setOriginal(content);
+          (def as HeatSinkDef).setOriginal(content);
         } else
         if (typeof(T) == typeof(JumpJetDef)) {
           (def as JumpJetDef).DataManager = UnityGameInstance.BattleTechGame.DataManager;
@@ -1411,6 +1594,10 @@ namespace MechEditor {
         string listname = Path.GetFileName(request.URI);
         content = requestAll(listname);
       } else
+      if (request.URI.StartsWith("/view/")) {
+        string listname = Path.GetFileName(request.URI);
+        content = viewResource(listname);
+      } else
       if (request.URI.StartsWith("/list/")) {
         string listname = Path.GetFileName(request.URI);
         content = listItems(listname);
@@ -1435,6 +1622,9 @@ namespace MechEditor {
       } else
       if (request.URI.StartsWith("/getavaiblelists")) {
         content = getAvaibleLists();
+      } else
+      if (request.URI.StartsWith("/getavaibleres")) {
+        content = getAvaibleRes();
       } else
       if (request.URI.StartsWith("/uisettings")) {
         content = writeUISettings(ref request);
